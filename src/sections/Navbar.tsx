@@ -56,7 +56,7 @@ export default function Navbar() {
             </a>
           ))}
           <Button size="sm" variant="outline" asChild>
-            <a href="https://github.com/Ruoyu-Tianyi/MathModeling" target="_blank" rel="noreferrer">
+            <a href="https://github.com/Ruoyu-Tianyi/MathgicStudio/tree/main/skill" target="_blank" rel="noreferrer">
               <GithubMark className="mr-1 h-4 w-4" /> Skill 源码
             </a>
           </Button>

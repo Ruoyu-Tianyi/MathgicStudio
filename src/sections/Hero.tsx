@@ -73,7 +73,7 @@ export default function Hero() {
             </a>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <a href="https://github.com/Ruoyu-Tianyi/MathModeling" target="_blank" rel="noreferrer">
+            <a href="https://github.com/Ruoyu-Tianyi/MathgicStudio" target="_blank" rel="noreferrer">
               <GithubMark className="mr-1 h-4 w-4" /> GitHub 仓库
             </a>
           </Button>

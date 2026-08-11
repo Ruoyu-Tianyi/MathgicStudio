@@ -6,7 +6,7 @@ import { GraduationCap, Mail, BookOpen } from 'lucide-react'
 import GithubMark from '@/components/GithubMark'
 import LinkedInMark from '@/components/LinkedInMark'
 
-const SKILLS = ['数学建模', '随机过程', 'Python 科学计算', 'LaTeX 排版', 'Agent 工作流设计']
+const SKILLS = ['数学建模', '金融市场分析', 'Python', 'LaTeX 排版', 'Agent 产品设计']
 
 export default function About() {
   return (
@@ -42,7 +42,7 @@ export default function About() {
                 </a>
               </Button>
               <Button size="sm" variant="outline" asChild>
-                <a href="https://github.com/Ruoyu-Tianyi/MathModeling/blob/main/README.md" target="_blank" rel="noreferrer">
+                <a href="https://github.com/Ruoyu-Tianyi/MathgicStudio/blob/main/skill/README.md" target="_blank" rel="noreferrer">
                   <BookOpen className="mr-1 h-4 w-4" /> 使用文档
                 </a>
               </Button>

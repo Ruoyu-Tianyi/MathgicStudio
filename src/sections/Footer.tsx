@@ -16,7 +16,7 @@ export default function Footer() {
           演示数据仅用于功能展示，完整求解请通过 Kimi 在本地运行 Skill。
         </p>
         <div className="flex items-center gap-4 text-sm text-slate-500">
-          <a href="https://github.com/Ruoyu-Tianyi/MathModeling" target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-indigo-600">
+          <a href="https://github.com/Ruoyu-Tianyi/MathgicStudio" target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-indigo-600">
             <GithubMark className="h-4 w-4" /> GitHub
           </a>
           <a href="#about" className="hover:text-indigo-600">联系作者</a>
