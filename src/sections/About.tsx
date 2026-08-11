@@ -24,7 +24,7 @@ export default function About() {
           <div className="flex-1 text-center sm:text-left">
             <h3 className="text-xl font-semibold text-slate-900">若瑜</h3>
             <p className="mt-1 flex items-center justify-center gap-1 text-sm text-slate-500 sm:justify-start">
-              <GraduationCap className="h-4 w-4" /> 数学建模竞赛选手 · 工作流开发者
+              <GraduationCap className="h-4 w-4" /> 西南财经大学 · 独立个人开发者
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
               把多次数模竞赛的解题流程沉淀为 math-modeling-contest Skill：从赛道判定、数据源路由、

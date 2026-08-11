@@ -6,10 +6,10 @@ import { useParallax } from '@/hooks/use-parallax'
 import type { CSSProperties } from 'react'
 
 const STATS = [
-  { icon: GitBranch, label: '五阶段门禁流水线', value: 'P0 → P4' },
-  { icon: ShieldCheck, label: '检验 + 灵敏度全覆盖', value: '6 检查 · 红队' },
+  { icon: GitBranch, label: '封装工作流', value: 'P0 → P4' },
+  { icon: ShieldCheck, label: '模型质量硬指标', value: '检验 + 灵敏度' },
   { icon: Languages, label: '国赛 / 美赛双语论文', value: 'CUMCM / MCM' },
-  { icon: FileText, label: '一键出片 · 输出可编辑 Word', value: 'PDF/Markdown → Docx/PDF' },
+  { icon: FileText, label: '端到端直接输出 · 可编辑 Word', value: 'PDF/Markdown → Docx/PDF' },
 ]
 
 // 漂浮数学符号：位置 / 视差速度 / 浮动节奏 / 透明度分层
