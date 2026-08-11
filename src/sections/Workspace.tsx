@@ -15,6 +15,7 @@ import {
   type ContestId, type JudgeResult,
 } from '@/lib/workflow'
 import { extractPdfText } from '@/lib/pdf'
+import RealGenPanel from '@/sections/RealGenPanel'
 
 type Phase = 'input' | 'running' | 'done'
 
@@ -304,6 +305,9 @@ export default function Workspace({ contest, onContestChange }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* 真实生成任务（后台 Worker + Kimi API） */}
+      <RealGenPanel contest={contest} problemText={problemText} />
     </section>
   )
 

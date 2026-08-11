@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Worker 密钥与本地产物
+worker/.env
+worker/paper_*.docx
+__pycache__/
