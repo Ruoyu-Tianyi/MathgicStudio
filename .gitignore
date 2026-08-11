@@ -27,3 +27,6 @@ dist-ssr
 worker/.env
 worker/paper_*.docx
 __pycache__/
+
+# Worker 任务工作目录（本地产物，不入库）
+job_*/
