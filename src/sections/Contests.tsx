@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Check, Clock, Globe } from 'lucide-react'
 import { CONTESTS, type ContestId } from '@/lib/workflow'
+import Reveal from '@/components/Reveal'
 
 interface Props {
   selected: ContestId
@@ -18,18 +19,18 @@ export default function Contests({ selected, onSelect }: Props) {
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2">
-        {(Object.keys(CONTESTS) as ContestId[]).map((id) => {
+        {(Object.keys(CONTESTS) as ContestId[]).map((id, idx) => {
           const c = CONTESTS[id]
           const active = selected === id
           return (
-            <Card
-              key={id}
-              onClick={() => onSelect(id)}
-              className={`cursor-pointer transition-all hover:shadow-lg ${
-                active ? 'border-2 shadow-md' : 'border border-slate-200'
-              }`}
-              style={active ? { borderColor: c.accent } : undefined}
-            >
+            <Reveal key={id} delay={idx * 140}>
+              <Card
+                onClick={() => onSelect(id)}
+                className={`h-full cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                  active ? 'border-2 shadow-md' : 'border border-slate-200'
+                }`}
+                style={active ? { borderColor: c.accent } : undefined}
+              >
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <Badge style={{ backgroundColor: c.accent }} className="text-white">
@@ -70,7 +71,8 @@ export default function Contests({ selected, onSelect }: Props) {
                   <a href="#workspace">用{c.name}配置开始</a>
                 </Button>
               </CardContent>
-            </Card>
+              </Card>
+            </Reveal>
           )
         })}
       </div>

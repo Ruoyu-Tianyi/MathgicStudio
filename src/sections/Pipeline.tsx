@@ -5,7 +5,7 @@ import { ArrowRight, Milestone } from 'lucide-react'
 
 export default function Pipeline() {
   return (
-    <section id="pipeline" className="scroll-mt-20 bg-slate-50 py-20">
+    <section id="pipeline" className="scroll-mt-20 bg-gradient-to-b from-white via-slate-100/70 to-white py-24">
       <div className="mx-auto max-w-6xl px-4">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-slate-900">五阶段门禁流水线</h2>

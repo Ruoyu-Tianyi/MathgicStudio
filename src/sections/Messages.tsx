@@ -59,7 +59,7 @@ export default function Messages() {
   const remove = (id: string) => persist(messages.filter((m) => m.id !== id))
 
   return (
-    <section id="messages" className="scroll-mt-20 bg-slate-50 py-20">
+    <section id="messages" className="scroll-mt-20 bg-gradient-to-b from-white via-slate-100/70 to-white py-24">
       <div className="mx-auto max-w-3xl px-4">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-slate-900">留言板</h2>
