@@ -3,7 +3,7 @@ import GithubMark from '@/components/GithubMark'
 
 export default function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-white py-10">
+    <footer className="border-t border-black/10 bg-white py-10">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-center">
         <span className="flex items-center gap-2 font-semibold text-slate-900">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">

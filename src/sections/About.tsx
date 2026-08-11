@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -10,15 +9,14 @@ const SKILLS = ['数学建模', '金融市场分析', 'Python', 'LaTeX 排版', 
 
 export default function About() {
   return (
-    <section id="about" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-slate-900">关于作者</h2>
+    <section id="about" className="border-t border-black/10">
+      <div className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">Author</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">关于作者</h2>
         <p className="mt-3 text-slate-600">这个项目背后的工作流由参赛实战经验沉淀而成。</p>
-      </div>
 
-      <Card className="mx-auto mt-10 max-w-2xl">
-        <CardContent className="flex flex-col items-center gap-6 p-8 sm:flex-row sm:items-start">
-          <Avatar className="h-20 w-20 border-2 border-indigo-100">
+        <div className="mt-10 flex max-w-3xl flex-col items-center gap-6 border-t border-black/10 pt-10 sm:flex-row sm:items-start">
+          <Avatar className="h-20 w-20">
             <AvatarFallback className="bg-indigo-600 text-2xl font-bold text-white">若</AvatarFallback>
           </Avatar>
           <div className="flex-1 text-center sm:text-left">
@@ -58,8 +56,8 @@ export default function About() {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </section>
   )
 }

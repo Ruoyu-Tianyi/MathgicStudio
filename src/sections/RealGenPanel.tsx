@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
-  Rocket, Download, Loader2, CheckCircle2, XCircle, Clock, Search, Info,
+  Rocket, Download, Loader2, CheckCircle2, XCircle, Clock, Search,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { ContestId } from '@/lib/workflow'
@@ -100,26 +98,22 @@ export default function RealGenPanel({ contest, problemText }: Props) {
   const canSubmit = problemText.trim().length >= 10 && !submitting
 
   return (
-    <Card className="mt-6 border-indigo-200">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-lg">③ 真实生成（Beta 公测）</CardTitle>
-          <Badge className="bg-indigo-600">免费</Badge>
-        </div>
-        <CardDescription>
-          提交后由后台 Worker 调用 Kimi K3 模型执行完整五阶段工作流，产出可编辑的 Word 论文。
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Alert className="border-amber-200 bg-amber-50/60">
-          <Info className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-sm text-amber-900">
-            公测说明：初期为控制成本，后台 <strong>每 2 小时集中接单一次</strong>，从提交到交付可能需要数小时，
-            提交后可随时离开——凭任务 ID 回来查询，或留下邮箱 / 微信，完成后作者会通知你。
-            论文由完整五阶段工作流生成（含模型推导、代码与图表），公测期间免费，正式版将按次收费。
-          </AlertDescription>
-        </Alert>
+    <div className="mt-16 border-t border-black/10 pt-12">
+      <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-slate-900">③ 真实生成（Beta 公测）</h3>
+        <Badge className="bg-indigo-600">免费</Badge>
+      </div>
+      <p className="mt-2 max-w-2xl text-sm text-slate-500">
+        提交后由后台 Worker 调用 Kimi K3 模型执行完整五阶段工作流，产出可编辑的 Word 论文。
+      </p>
 
+      <div className="mt-5 max-w-3xl rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        公测说明：初期为控制成本，后台 <strong>每 2 小时集中接单一次</strong>，从提交到交付可能需要数小时，
+        提交后可随时离开——凭任务 ID 回来查询，或留下邮箱 / 微信，完成后作者会通知你。
+        论文由完整五阶段工作流生成（含模型推导、代码与图表），公测期间免费，正式版将按次收费。
+      </div>
+
+      <div className="mt-6 space-y-4">
         {!job && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Input
@@ -146,9 +140,9 @@ export default function RealGenPanel({ contest, problemText }: Props) {
           <p className={`text-sm ${notice.ok ? 'text-green-600' : 'text-red-600'}`}>{notice.text}</p>
         )}
 
-        {/* 任务状态卡 */}
+        {/* 任务状态 */}
         {job && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="max-w-3xl rounded-lg bg-black/[0.03] p-4">
             <div className="flex flex-wrap items-center gap-2">
               {job.status === 'pending' && <Badge variant="outline" className="border-slate-300 text-slate-600"><Clock className="mr-1 h-3 w-3" /> 排队中</Badge>}
               {job.status === 'running' && <Badge variant="outline" className="border-indigo-400 bg-indigo-50 text-indigo-700"><Loader2 className="mr-1 h-3 w-3 animate-spin" /> 生成中</Badge>}
@@ -169,7 +163,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
               </Button>
             )}
             {job.status === 'failed' && (
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => { setJob(null); localStorage.removeItem(STORAGE_KEY) }}>
+              <Button size="sm" variant="outline" className="mt-3 bg-white" onClick={() => { setJob(null); localStorage.removeItem(STORAGE_KEY) }}>
                 重新提交
               </Button>
             )}
@@ -177,7 +171,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
         )}
 
         {/* 任务查询 */}
-        <div className="flex items-center gap-2 border-t border-slate-100 pt-4">
+        <div className="flex items-center gap-2 pt-2">
           <Input
             value={queryId}
             onChange={(e) => setQueryId(e.target.value)}
@@ -188,7 +182,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
             <Search className="mr-1 h-3 w-3" /> 查询
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

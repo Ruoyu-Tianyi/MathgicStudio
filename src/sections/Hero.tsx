@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ArrowRight, FileText, ShieldCheck, GitBranch, Languages } from 'lucide-react'
 import GithubMark from '@/components/GithubMark'
 import { useParallax } from '@/hooks/use-parallax'
@@ -39,15 +38,8 @@ function ParallaxSymbol({ s }: { s: (typeof SYMBOLS)[number] }) {
 }
 
 export default function Hero() {
-  const blobRight = useParallax<HTMLDivElement>(0.22)
-  const blobLeft = useParallax<HTMLDivElement>(-0.14)
-
   return (
-    <section id="top" className="relative overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-white pb-16 pt-32">
-      {/* 视差背景光斑 */}
-      <div ref={blobRight} className="pointer-events-none absolute -top-24 right-0 h-96 w-96 rounded-full bg-indigo-100/60 blur-3xl" aria-hidden="true" />
-      <div ref={blobLeft} className="pointer-events-none absolute left-0 top-40 h-72 w-72 rounded-full bg-sky-100/50 blur-3xl" aria-hidden="true" />
-
+    <section id="top" className="relative overflow-hidden pb-20 pt-32">
       {/* 视差漂浮符号层 */}
       <div className="absolute inset-0 hidden md:block" aria-hidden="true">
         {SYMBOLS.map((s) => (
@@ -56,13 +48,13 @@ export default function Hero() {
       </div>
 
       <div className="relative mx-auto max-w-6xl px-4 text-center">
-        <Badge variant="secondary" className="mb-6 border border-indigo-200 bg-white px-4 py-1 text-indigo-700">
-          基于 math-modeling-contest Skill · 全自动建模工作流
-        </Badge>
-        <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight text-slate-900 md:text-6xl">
+        <p className="mb-6 font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">
+          math-modeling-contest Skill · 全自动建模工作流
+        </p>
+        <h1 className="mx-auto max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-slate-900 md:text-6xl">
           赛题进，<span className="text-indigo-600">论文出</span>
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
           输入数学建模赛题，自动完成 审题立项 → 数据获取 → 建模求解 → 论文写作 → 校验交付
           五个阶段，产出可直接提交、含模型推导、可运行代码与规范图表的完整竞赛论文。
         </p>
@@ -79,12 +71,13 @@ export default function Hero() {
           </Button>
         </div>
 
-        <div className="mx-auto mt-16 grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
+        {/* 指标带：发丝线分隔，无卡片 */}
+        <div className="mx-auto mt-20 grid max-w-4xl grid-cols-2 border-y border-black/10 md:grid-cols-4 md:divide-x md:divide-black/10">
           {STATS.map((s) => (
-            <div key={s.label} className="rounded-xl border border-slate-200 bg-white/80 p-4 text-left shadow-sm backdrop-blur-sm">
+            <div key={s.label} className="px-4 py-6 text-left">
               <s.icon className="h-5 w-5 text-indigo-600" />
-              <div className={`mt-2 font-semibold text-slate-900 ${s.value.length > 12 ? 'break-words text-sm leading-snug' : 'text-lg'}`}>{s.value}</div>
-              <div className="text-xs text-slate-500">{s.label}</div>
+              <div className={`mt-3 font-semibold text-slate-900 ${s.value.length > 12 ? 'break-words text-sm leading-snug' : 'text-base'}`}>{s.value}</div>
+              <div className="mt-1 text-xs text-slate-500">{s.label}</div>
             </div>
           ))}
         </div>
