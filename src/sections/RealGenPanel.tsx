@@ -107,7 +107,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
           <Badge className="bg-indigo-600">免费</Badge>
         </div>
         <CardDescription>
-          提交后由后台 Worker 调用 Kimi 大模型执行完整五阶段工作流，产出可编辑的 Word 论文。
+          提交后由后台 Worker 调用 Kimi K3 模型执行完整五阶段工作流，产出可编辑的 Word 论文。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

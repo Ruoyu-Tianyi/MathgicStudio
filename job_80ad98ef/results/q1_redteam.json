@@ -1,0 +1,28 @@
+{
+  "R1_demand_to_zero": {
+    "opt_set": [
+      "S2",
+      "S4",
+      "S5"
+    ],
+    "z": 159.9547
+  },
+  "R2_duplicate_site": {
+    "z_star": 215.271998874,
+    "equals_base": true,
+    "mirror_pairs_exist": true
+  },
+  "R3_far_site": {
+    "far_index_in_opt": false,
+    "z": 215.272
+  },
+  "R4_extreme_weight": {
+    "opt_set": [
+      "S2",
+      "S4",
+      "S5"
+    ],
+    "contains_D4_nearest": true,
+    "z": 520.7421
+  }
+}
