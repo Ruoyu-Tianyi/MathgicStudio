@@ -114,9 +114,9 @@ export default function RealGenPanel({ contest, problemText }: Props) {
         <Alert className="border-amber-200 bg-amber-50/60">
           <Info className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-sm text-amber-900">
-            公测说明：任务排队执行，单篇预计 <strong>20–60 分钟</strong>；当前版本输出为完整论文推导稿
-            （模型建立、推导、检验与灵敏度设计、附录代码），数值实验与图表需在本地复核补跑。
-            生成服务由我个人承担 API 成本，公测期间免费，正式版将按次收费。
+            公测说明：初期为控制成本，后台 <strong>每 2 小时集中接单一次</strong>，从提交到交付可能需要数小时，
+            提交后可随时离开——凭任务 ID 回来查询，或留下邮箱 / 微信，完成后作者会通知你。
+            论文由完整五阶段工作流生成（含模型推导、代码与图表），公测期间免费，正式版将按次收费。
           </AlertDescription>
         </Alert>
 
@@ -125,7 +125,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
             <Input
               value={contact}
               onChange={(e) => setContact(e.target.value)}
-              placeholder="联系方式（选填，邮箱 / 微信，便于交付通知）"
+              placeholder="邮箱 / 微信（建议填写，完成后通知你）"
               className="sm:max-w-xs"
             />
             <Button
