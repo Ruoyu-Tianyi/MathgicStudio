@@ -115,20 +115,13 @@
   }
 }
 
-/* ── 滚动吸附（scroll-snap proximity）：滚动停下时自动对齐到最近区块开头 ──
-   用 proximity 而非 mandatory —— 高于一屏的区块（如在线体验区）仍可自由滚动 */
+/* ── 全局平滑滚动：滚轮与锚点跳转统一柔和过渡 ── */
 html {
   scroll-behavior: smooth;
-  scroll-snap-type: y proximity;
-}
-
-section[id] {
-  scroll-snap-align: start;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
-    scroll-snap-type: none;
   }
 }

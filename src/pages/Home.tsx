@@ -9,12 +9,10 @@ import Messages from '../sections/Messages'
 import Sponsor from '../sections/Sponsor'
 import Footer from '../sections/Footer'
 import Reveal from '../components/Reveal'
-import { useSectionSnap } from '../hooks/use-section-snap'
 import type { ContestId } from '../lib/workflow'
 
 export default function Home() {
   const [contest, setContest] = useState<ContestId>('cumcm')
-  useSectionSnap()
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 antialiased">
