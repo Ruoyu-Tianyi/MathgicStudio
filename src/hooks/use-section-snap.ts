@@ -3,8 +3,9 @@ import { useEffect } from 'react'
 const NAV_OFFSET = 72 // 固定导航栏高度补偿
 const EDGE_TOLERANCE = 120 // 距区块边缘多少 px 内允许翻页
 const DELTA_THRESHOLD = 40 // 滚轮增量累积阈值（兼容触控板小碎步）
-const COOLDOWN = 900 // 翻页冷却，防止一次滚动连翻多页
 const IDLE_RESET = 180 // 超过该间隔无滚动则清空累积量
+const MIN_DURATION = 550 // 翻页动画最短时长（ms）
+const MAX_DURATION = 950 // 翻页动画最长时长（ms）
 
 /**
  * 滚轮辅助翻页：滚一下切到相邻区块开头。
@@ -72,10 +73,30 @@ export function useSectionSnap() {
       }
     }
 
+    // easeInOutCubic：起步柔和、中段利落、收尾渐停
+    const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+
     const jump = (top: number) => {
       cooling = true
-      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-      setTimeout(() => (cooling = false), COOLDOWN)
+      const startY = window.scrollY
+      const target = Math.max(0, top)
+      const dist = target - startY
+      // 时长随距离自适应：跨得越远稍久一点，但有上下限
+      const duration = Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.abs(dist) * 0.55))
+      const t0 = performance.now()
+
+      const step = (now: number) => {
+        const p = Math.min(1, (now - t0) / duration)
+        // 每帧用 instant 定位，避免 CSS scroll-behavior: smooth 与逐帧动画打架
+        window.scrollTo({ top: startY + dist * easeInOutCubic(p), behavior: 'instant' })
+        if (p < 1) {
+          requestAnimationFrame(step)
+        } else {
+          // 动画结束后短暂冷却，防止一次滚动的余量触发连翻
+          setTimeout(() => (cooling = false), 120)
+        }
+      }
+      requestAnimationFrame(step)
     }
 
     window.addEventListener('wheel', onWheel, { passive: false })
