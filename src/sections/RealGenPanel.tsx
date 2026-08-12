@@ -199,7 +199,8 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
     window.open(data.signedUrl, '_blank')
   }
 
-  const canSubmit = problemText.trim().length >= 10 && !submitting
+  const contactOk = contact.trim().length >= 5
+  const canSubmit = problemText.trim().length >= 10 && contactOk && !submitting
 
   return (
     <div className="mt-16 border-t border-black/10 pt-12">
@@ -213,7 +214,7 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
 
       <div className="mt-5 max-w-3xl rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
         公测说明：初期为控制成本，后台 <strong>每 2 小时集中接单一次</strong>，从提交到交付可能需要数小时，
-        提交后可随时离开——凭任务 ID 回来查询，或留下邮箱 / 微信，完成后作者会通知你。
+        提交后可随时离开——凭任务 ID 回来查询；邮箱 / 微信为必填，完成后作者会第一时间通知你。
         论文由完整五阶段工作流生成（含模型推导、代码与图表），公测期间免费，正式版将按次收费。
       </div>
 
@@ -224,8 +225,9 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
               <Input
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
-                placeholder="邮箱 / 微信（建议填写，完成后通知你）"
+                placeholder="邮箱 / 微信（必填，完成后通知你）"
                 className="sm:max-w-xs"
+                required
               />
               <Button
                 onClick={handleSubmit}
@@ -235,9 +237,11 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
                 {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Rocket className="mr-1 h-4 w-4" />}
                 {submitting ? '上传并提交中…' : '提交真实生成任务'}
               </Button>
-              {problemText.trim().length < 10 && (
+              {problemText.trim().length < 10 ? (
                 <span className="text-xs text-slate-500">请先在上方 ① 中输入赛题（≥10 字）</span>
-              )}
+              ) : !contactOk ? (
+                <span className="text-xs text-amber-600">请填写邮箱 / 微信（必填，用于完成后通知你）</span>
+              ) : null}
             </div>
 
             {/* 数据文件上传（B/C 题） */}
@@ -333,12 +337,20 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
           <div className="mt-8 border-t border-black/10 pt-6">
             <div className="flex items-center justify-between">
               <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <ListOrdered className="h-4 w-4 text-indigo-600" /> 任务队列（管理员可见 · 30s 自动刷新）
+                <ListOrdered className="h-4 w-4 text-indigo-600" /> 任务队列（管理员可见 · 全部状态 · 30s 自动刷新）
               </h4>
               <Button variant="ghost" size="sm" onClick={fetchQueue} disabled={queueLoading}>
                 {queueLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '刷新'}
               </Button>
             </div>
+            {queue.length > 0 && (
+              <p className="mt-2 text-xs text-slate-500">
+                共 {queue.length} 单：排队中 {queue.filter((q) => q.status === 'pending').length} ·
+                生成中 {queue.filter((q) => q.status === 'running').length} ·
+                已完成 {queue.filter((q) => q.status === 'done').length} ·
+                失败 {queue.filter((q) => q.status === 'failed').length}
+              </p>
+            )}
             <div className="mt-3 divide-y divide-black/10 border-y border-black/10">
               {queue.length === 0 && (
                 <p className="py-6 text-center text-xs text-slate-400">队列暂无任务</p>
