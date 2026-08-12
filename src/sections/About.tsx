@@ -26,7 +26,8 @@ export default function About() {
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
               把数模竞赛的解题流程沉淀为 math-modeling-contest Skill：从赛道判定、数据源路由、
-              深度推理门禁到一键排版出片，全部规则写在公开仓库中，欢迎交流与共建。
+              深度推理门禁到一键排版出片，全部规则写在公开仓库中。同时创立数学建模 Agent 产品 Mathgic、
+              应用平台 Mathgic Studio，Math x Magic，欢迎交流与共建！
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-1.5 sm:justify-start">
               {SKILLS.map((s) => (
