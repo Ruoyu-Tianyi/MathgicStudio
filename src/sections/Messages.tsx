@@ -162,10 +162,10 @@ export default function Messages() {
   }
 
   async function submitReply(msgId: string) {
-    const n = name.trim()
+    const n = isAdmin ? '若瑜（作者）' : name.trim()
     const t = replyText.trim()
     if (!n || !t) {
-      setError('请先填写昵称，再写评论')
+      setError('请先填写昵称，再写回复')
       return
     }
     setReplySending(true)
@@ -343,7 +343,7 @@ export default function Messages() {
                       className="flex items-center gap-1 text-xs text-slate-400 transition-colors hover:text-indigo-600"
                     >
                       <MessageCircle className="h-3.5 w-3.5" />
-                      {openThread === m.id ? '收起评论' : '评论'}
+                      {openThread === m.id ? '收起回复' : '回复'}
                     </button>
                   </div>
                 </div>
@@ -360,7 +360,11 @@ export default function Messages() {
                   {(replies[m.id] ?? []).map((r) => (
                     <div key={r.id} className="flex items-start justify-between gap-2">
                       <p className="text-sm">
-                        <span className="font-medium text-slate-800">{r.name}</span>
+                        {r.name === '若瑜（作者）' ? (
+                          <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-700">{r.name}</span>
+                        ) : (
+                          <span className="font-medium text-slate-800">{r.name}</span>
+                        )}
                         <span className="mx-1.5 text-slate-300">·</span>
                         <span className="text-slate-600">{r.text}</span>
                         <span className="ml-2 text-xs text-slate-400">{formatTime(r.created_at)}</span>
@@ -373,20 +377,22 @@ export default function Messages() {
                     </div>
                   ))}
                   {(replies[m.id] ?? []).length === 0 && !repliesLoading && (
-                    <p className="text-xs text-slate-400">还没有评论</p>
+                    <p className="text-xs text-slate-400">暂无回复</p>
                   )}
-                  <div className="flex gap-2">
-                    <Input
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder={name.trim() ? '写下你的评论…' : '请先在上方填写昵称'}
-                      className="h-8 text-sm"
-                      maxLength={300}
-                    />
-                    <Button size="sm" variant="outline" onClick={() => submitReply(m.id)} disabled={replySending || !replyText.trim()}>
-                      {replySending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                    </Button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <Input
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="以作者身份回复…"
+                        className="h-8 text-sm"
+                        maxLength={300}
+                      />
+                      <Button size="sm" variant="outline" onClick={() => submitReply(m.id)} disabled={replySending || !replyText.trim()}>
+                        {replySending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
