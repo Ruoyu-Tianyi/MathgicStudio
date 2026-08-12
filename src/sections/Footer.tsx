@@ -13,7 +13,7 @@ export default function Footer() {
         </span>
         <p className="max-w-xl text-sm text-slate-500">
           赛题进，论文出 —— 基于开源 math-modeling-contest Skill 的数学建模全自动工作流。
-          演示数据仅用于功能展示，完整求解请通过 Kimi 在本地运行 Skill。
+          演示数据仅用于功能展示，完整求解请通过任意Agent 在本地运行 Skill。
         </p>
         <div className="flex items-center gap-4 text-sm text-slate-500">
           <a href="https://github.com/Ruoyu-Tianyi/MathgicStudio" target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-indigo-600">
