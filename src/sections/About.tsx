@@ -25,7 +25,7 @@ export default function About() {
               <GraduationCap className="h-4 w-4" /> 西南财经大学 · 独立个人开发者
             </p>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              把多次数模竞赛的解题流程沉淀为 math-modeling-contest Skill：从赛道判定、数据源路由、
+              把数模竞赛的解题流程沉淀为 math-modeling-contest Skill：从赛道判定、数据源路由、
               深度推理门禁到一键排版出片，全部规则写在公开仓库中，欢迎交流与共建。
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-1.5 sm:justify-start">
