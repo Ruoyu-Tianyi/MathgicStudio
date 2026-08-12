@@ -31,6 +31,7 @@ export default function Workspace({ contest, onContestChange }: Props) {
   const [outline, setOutline] = useState('')
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfNotice, setPdfNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [problemFile, setProblemFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const logRef = useRef<HTMLDivElement>(null)
@@ -65,6 +66,7 @@ export default function Workspace({ contest, onContestChange }: Props) {
         setPdfNotice({ ok: false, text: '未能从 PDF 中提取到文字（扫描件/图片型 PDF 暂不支持，请粘贴文本）' })
       } else {
         setProblemText(text)
+        setProblemFile(file) // 保留原始 PDF，提交真实生成任务时一并上传给 Worker
         setJudge(judgeTrack(text)) // 上传完成即自动判定赛道并高亮信号词
         setPdfNotice({ ok: true, text: `已从「${file.name}」提取 ${text.length} 字符并自动完成赛道判定，可在下方编辑修正` })
       }
@@ -116,6 +118,7 @@ export default function Workspace({ contest, onContestChange }: Props) {
     setOutline('')
     setStageIdx(0)
     setPdfNotice(null)
+    setProblemFile(null)
   }
 
   const handleDownload = () => {
@@ -174,7 +177,7 @@ export default function Workspace({ contest, onContestChange }: Props) {
                     key={s.title}
                     variant="outline"
                     size="sm"
-                    onClick={() => { setProblemText(s.text); setJudge(null); setPdfNotice(null); handleResetText() }}
+                    onClick={() => { setProblemText(s.text); setJudge(null); setPdfNotice(null); setProblemFile(null); handleResetText() }}
                   >
                     <Sparkles className="mr-1 h-3 w-3" /> {s.title}
                   </Button>
@@ -185,7 +188,7 @@ export default function Workspace({ contest, onContestChange }: Props) {
               )}
               <Textarea
                 value={problemText}
-                onChange={(e) => { setProblemText(e.target.value); setJudge(null) }}
+                onChange={(e) => { setProblemText(e.target.value); setJudge(null); setProblemFile(null) }}
                 placeholder="在此粘贴赛题全文（含各小问）……"
                 className="min-h-[220px] font-mono text-sm"
                 disabled={phase === 'running'}
@@ -302,7 +305,7 @@ export default function Workspace({ contest, onContestChange }: Props) {
         </div>
 
         {/* 真实生成任务（后台 Worker + Kimi K3） */}
-        <RealGenPanel contest={contest} problemText={problemText} />
+        <RealGenPanel contest={contest} problemText={problemText} problemFile={problemFile} />
       </div>
     </section>
   )

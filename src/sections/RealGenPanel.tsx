@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
   Rocket, Download, Loader2, CheckCircle2, XCircle, Clock, Search, ListOrdered,
+  Paperclip, X,
 } from 'lucide-react'
 import { supabase, ADMIN_EMAIL } from '@/lib/supabase'
 import type { ContestId } from '@/lib/workflow'
@@ -22,10 +23,17 @@ interface JobRow {
 interface Props {
   contest: ContestId
   problemText: string
+  problemFile: File | null
 }
 
 const STORAGE_KEY = 'mathgic-job-id'
 const POLL_MS = 15000
+const DATA_FILE_ACCEPT = '.csv,.xlsx,.xls,.zip,.txt,.json,.dat,.sav,.mat,.tsv'
+const DATA_FILE_MAX_MB = 20
+
+function sanitizeName(name: string) {
+  return name.replace(/[\\/]/g, '_').replace(/\s+/g, '_')
+}
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleString('zh-CN', { hour12: false })
@@ -38,13 +46,15 @@ function StatusBadge({ status }: { status: JobRow['status'] }) {
   return <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700"><XCircle className="mr-1 h-3 w-3" /> 失败</Badge>
 }
 
-export default function RealGenPanel({ contest, problemText }: Props) {
+export default function RealGenPanel({ contest, problemText, problemFile }: Props) {
   const [contact, setContact] = useState('')
+  const [dataFiles, setDataFiles] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [job, setJob] = useState<JobRow | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [queryId, setQueryId] = useState('')
   const [downloading, setDownloading] = useState(false)
+  const dataFileRef = useRef<HTMLInputElement>(null)
 
   // 管理员任务队列
   const [isAdmin, setIsAdmin] = useState(false)
@@ -108,12 +118,61 @@ export default function RealGenPanel({ contest, problemText }: Props) {
     }
   }
 
+  function handleDataFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (picked.length === 0) return
+    const oversized = picked.find((f) => f.size > DATA_FILE_MAX_MB * 1024 * 1024)
+    if (oversized) {
+      setNotice({ ok: false, text: `「${oversized.name}」超过 ${DATA_FILE_MAX_MB}MB，请压缩为 zip 或拆分后再传` })
+      return
+    }
+    setNotice(null)
+    setDataFiles((prev) => {
+      const names = new Set(prev.map((f) => f.name))
+      return [...prev, ...picked.filter((f) => !names.has(f.name))]
+    })
+  }
+
   async function handleSubmit() {
     setSubmitting(true)
     setNotice(null)
+
+    // 客户端预生成任务 ID：先传文件，再一次性写入任务行（anon 无 UPDATE 权限）
+    const jobId = crypto.randomUUID()
+    const uploadedPaths: string[] = []
+
+    if (problemFile) {
+      const path = `input/${jobId}/problem.pdf`
+      const { error } = await supabase.storage.from('jobs').upload(path, problemFile)
+      if (error) {
+        setSubmitting(false)
+        setNotice({ ok: false, text: `赛题 PDF 上传失败：${error.message}` })
+        return
+      }
+    }
+
+    for (let i = 0; i < dataFiles.length; i++) {
+      const path = `input/${jobId}/data/${String(i + 1).padStart(2, '0')}-${sanitizeName(dataFiles[i].name)}`
+      const { error } = await supabase.storage.from('jobs').upload(path, dataFiles[i])
+      if (error) {
+        setSubmitting(false)
+        setNotice({ ok: false, text: `数据文件「${dataFiles[i].name}」上传失败：${error.message}` })
+        return
+      }
+      uploadedPaths.push(path)
+    }
+
     const { data, error } = await supabase
       .from('jobs')
-      .insert({ contest, problem_text: problemText, contact: contact || null })
+      .insert({
+        id: jobId,
+        contest,
+        problem_text: problemText,
+        contact: contact || null,
+        problem_file_path: problemFile ? `input/${jobId}/problem.pdf` : null,
+        data_files: uploadedPaths,
+      })
       .select('id,contest,status,stage,result_file_path,error,contact,created_at')
       .single()
     setSubmitting(false)
@@ -160,24 +219,68 @@ export default function RealGenPanel({ contest, problemText }: Props) {
 
       <div className="mt-6 space-y-4">
         {!job && (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Input
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              placeholder="邮箱 / 微信（建议填写，完成后通知你）"
-              className="sm:max-w-xs"
-            />
-            <Button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className="bg-indigo-600 hover:bg-indigo-700"
-            >
-              {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Rocket className="mr-1 h-4 w-4" />}
-              {submitting ? '提交中…' : '提交真实生成任务'}
-            </Button>
-            {problemText.trim().length < 10 && (
-              <span className="text-xs text-slate-500">请先在上方 ① 中输入赛题（≥10 字）</span>
-            )}
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Input
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                placeholder="邮箱 / 微信（建议填写，完成后通知你）"
+                className="sm:max-w-xs"
+              />
+              <Button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Rocket className="mr-1 h-4 w-4" />}
+                {submitting ? '上传并提交中…' : '提交真实生成任务'}
+              </Button>
+              {problemText.trim().length < 10 && (
+                <span className="text-xs text-slate-500">请先在上方 ① 中输入赛题（≥10 字）</span>
+              )}
+            </div>
+
+            {/* 数据文件上传（B/C 题） */}
+            <div className="max-w-3xl">
+              <input
+                ref={dataFileRef}
+                type="file"
+                multiple
+                accept={DATA_FILE_ACCEPT}
+                className="hidden"
+                onChange={handleDataFiles}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => dataFileRef.current?.click()}
+                  disabled={submitting}
+                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                >
+                  <Paperclip className="mr-1 h-3 w-3" /> 添加赛题数据文件
+                </Button>
+                <span className="text-xs text-slate-500">
+                  B / C 题建议上传：csv / xlsx / zip 等，可多选，单个 ≤{DATA_FILE_MAX_MB}MB，随任务一并交给 Worker 建模使用
+                </span>
+              </div>
+              {dataFiles.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {dataFiles.map((f) => (
+                    <Badge key={f.name} variant="secondary" className="bg-indigo-50 text-indigo-800">
+                      {f.name}（{(f.size / 1024 / 1024).toFixed(1)}MB）
+                      <button
+                        onClick={() => setDataFiles((prev) => prev.filter((x) => x.name !== f.name))}
+                        className="ml-1 text-indigo-400 hover:text-indigo-700"
+                        aria-label={`移除 ${f.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
