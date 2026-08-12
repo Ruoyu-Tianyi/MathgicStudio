@@ -3,13 +3,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { MessageSquare, Send, Trash2, ShieldCheck, LogOut, Loader2, CloudOff } from 'lucide-react'
-import { supabase, ADMIN_EMAIL, type MessageRow } from '@/lib/supabase'
+import {
+  MessageSquare, Send, Trash2, ShieldCheck, LogOut, Loader2, CloudOff,
+  Pin, PinOff, Heart, MessageCircle,
+} from 'lucide-react'
+import { supabase, ADMIN_EMAIL, type MessageRow, type ReplyRow } from '@/lib/supabase'
 
 const NAME_KEY = 'mathgic-nickname'
+const LIKED_KEY = 'mathgic-liked'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString('zh-CN', { hour12: false })
+}
+
+function loadLiked(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(LIKED_KEY) ?? '[]'))
+  } catch {
+    return new Set()
+  }
 }
 
 export default function Messages() {
@@ -21,6 +33,14 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const [cloudOk, setCloudOk] = useState(true)
 
+  // 点赞 / 评论
+  const [liked, setLiked] = useState<Set<string>>(new Set())
+  const [openThread, setOpenThread] = useState<string | null>(null)
+  const [replies, setReplies] = useState<Record<string, ReplyRow[]>>({})
+  const [replyText, setReplyText] = useState('')
+  const [replySending, setReplySending] = useState(false)
+  const [repliesLoading, setRepliesLoading] = useState(false)
+
   // 管理员状态
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPanelOpen, setAdminPanelOpen] = useState(false)
@@ -30,6 +50,7 @@ export default function Messages() {
 
   useEffect(() => {
     setName(localStorage.getItem(NAME_KEY) ?? '')
+    setLiked(loadLiked())
     void fetchMessages()
 
     // 恢复登录态 + 监听登录变化
@@ -47,6 +68,7 @@ export default function Messages() {
     const { data, error: err } = await supabase
       .from('messages')
       .select('*')
+      .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(50)
     if (err) {
@@ -89,6 +111,86 @@ export default function Messages() {
       return
     }
     setMessages((prev) => prev.filter((m) => m.id !== id))
+  }
+
+  // ── 置顶（管理员） ──
+  async function togglePin(m: MessageRow) {
+    const { error: err } = await supabase
+      .from('messages').update({ pinned: !m.pinned }).eq('id', m.id)
+    if (err) {
+      setError('置顶操作失败：' + err.message)
+      return
+    }
+    void fetchMessages() // 重新排序
+  }
+
+  // ── 点赞 ──
+  async function like(m: MessageRow) {
+    if (liked.has(m.id)) return
+    // 乐观更新
+    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, likes: x.likes + 1 } : x)))
+    const next = new Set(liked).add(m.id)
+    setLiked(next)
+    localStorage.setItem(LIKED_KEY, JSON.stringify([...next]))
+    const { error: err } = await supabase.rpc('like_message', { msg_id: m.id })
+    if (err) {
+      // 回滚
+      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, likes: x.likes - 1 } : x)))
+      next.delete(m.id)
+      setLiked(new Set(next))
+      localStorage.setItem(LIKED_KEY, JSON.stringify([...next]))
+    }
+  }
+
+  // ── 评论 ──
+  async function toggleThread(msgId: string) {
+    if (openThread === msgId) {
+      setOpenThread(null)
+      return
+    }
+    setOpenThread(msgId)
+    if (replies[msgId]) return // 已加载过
+    setRepliesLoading(true)
+    const { data } = await supabase
+      .from('message_replies')
+      .select('*')
+      .eq('message_id', msgId)
+      .order('created_at', { ascending: true })
+      .limit(100)
+    setReplies((prev) => ({ ...prev, [msgId]: (data as ReplyRow[]) ?? [] }))
+    setRepliesLoading(false)
+  }
+
+  async function submitReply(msgId: string) {
+    const n = name.trim()
+    const t = replyText.trim()
+    if (!n || !t) {
+      setError('请先填写昵称，再写评论')
+      return
+    }
+    setReplySending(true)
+    const { data, error: err } = await supabase
+      .from('message_replies')
+      .insert({ message_id: msgId, name: n.slice(0, 20), text: t.slice(0, 300) })
+      .select()
+      .single()
+    setReplySending(false)
+    if (err) {
+      setError('评论失败：' + err.message)
+      return
+    }
+    localStorage.setItem(NAME_KEY, n)
+    setReplies((prev) => ({ ...prev, [msgId]: [...(prev[msgId] ?? []), data as ReplyRow] }))
+    setReplyText('')
+  }
+
+  async function removeReply(msgId: string, replyId: string) {
+    const { error: err } = await supabase.from('message_replies').delete().eq('id', replyId)
+    if (err) {
+      setError('删除评论失败：' + err.message)
+      return
+    }
+    setReplies((prev) => ({ ...prev, [msgId]: prev[msgId].filter((r) => r.id !== replyId) }))
   }
 
   async function sendMagicLink() {
@@ -162,7 +264,7 @@ export default function Messages() {
                 <p className="mt-1 text-xs text-slate-400">免密码：点击邮件中的魔法链接即完成登录。</p>
               </div>
             )}
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="昵称" maxLength={20} />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="昵称（评论时也会使用）" maxLength={20} />
             <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="留言内容……" className="min-h-[90px]" maxLength={300} />
             {error && <p className="text-sm text-red-600">{error}</p>}
             <Button onClick={submit} disabled={sending || !cloudOk} className="bg-indigo-600 hover:bg-indigo-700">
@@ -188,24 +290,105 @@ export default function Messages() {
             <p className="py-8 text-center text-sm text-slate-400">还没有留言，来抢沙发～</p>
           )}
           {messages.map((m) => (
-            <div key={m.id} className="flex items-start gap-3 py-4">
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-black/[0.06] text-sm text-slate-700">{m.name[0]}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-slate-900">{m.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">{formatTime(m.created_at)}</span>
-                    {isAdmin && (
-                      <button onClick={() => remove(m.id)} className="text-slate-300 transition-colors hover:text-red-500" aria-label="删除留言">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+            <div key={m.id} className="py-4">
+              <div className="flex items-start gap-3">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-black/[0.06] text-sm text-slate-700">{m.name[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      {m.name}
+                      {m.pinned && (
+                        <span className="flex items-center gap-0.5 rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-700">
+                          <Pin className="h-3 w-3" /> 置顶
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400">{formatTime(m.created_at)}</span>
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => togglePin(m)}
+                            className="text-slate-300 transition-colors hover:text-indigo-600"
+                            aria-label={m.pinned ? '取消置顶' : '置顶'}
+                            title={m.pinned ? '取消置顶' : '置顶'}
+                          >
+                            {m.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                          </button>
+                          <button onClick={() => remove(m.id)} className="text-slate-300 transition-colors hover:text-red-500" aria-label="删除留言">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{m.text}</p>
+
+                  {/* 点赞 + 评论入口 */}
+                  <div className="mt-2 flex items-center gap-4">
+                    <button
+                      onClick={() => like(m)}
+                      disabled={liked.has(m.id)}
+                      className={`flex items-center gap-1 text-xs transition-colors ${
+                        liked.has(m.id) ? 'text-red-500' : 'text-slate-400 hover:text-red-500'
+                      }`}
+                    >
+                      <Heart className={`h-3.5 w-3.5 ${liked.has(m.id) ? 'fill-red-500' : ''}`} />
+                      {m.likes > 0 ? m.likes : '赞'}
+                    </button>
+                    <button
+                      onClick={() => toggleThread(m.id)}
+                      className="flex items-center gap-1 text-xs text-slate-400 transition-colors hover:text-indigo-600"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      {openThread === m.id ? '收起评论' : '评论'}
+                    </button>
                   </div>
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{m.text}</p>
               </div>
+
+              {/* 评论线程 */}
+              {openThread === m.id && (
+                <div className="ml-12 mt-3 space-y-3 border-l-2 border-black/10 pl-4">
+                  {repliesLoading && !replies[m.id] && (
+                    <p className="flex items-center gap-2 text-xs text-slate-400">
+                      <Loader2 className="h-3 w-3 animate-spin" /> 加载评论…
+                    </p>
+                  )}
+                  {(replies[m.id] ?? []).map((r) => (
+                    <div key={r.id} className="flex items-start justify-between gap-2">
+                      <p className="text-sm">
+                        <span className="font-medium text-slate-800">{r.name}</span>
+                        <span className="mx-1.5 text-slate-300">·</span>
+                        <span className="text-slate-600">{r.text}</span>
+                        <span className="ml-2 text-xs text-slate-400">{formatTime(r.created_at)}</span>
+                      </p>
+                      {isAdmin && (
+                        <button onClick={() => removeReply(m.id, r.id)} className="shrink-0 text-slate-300 hover:text-red-500" aria-label="删除评论">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {(replies[m.id] ?? []).length === 0 && !repliesLoading && (
+                    <p className="text-xs text-slate-400">还没有评论</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder={name.trim() ? '写下你的评论…' : '请先在上方填写昵称'}
+                      className="h-8 text-sm"
+                      maxLength={300}
+                    />
+                    <Button size="sm" variant="outline" onClick={() => submitReply(m.id)} disabled={replySending || !replyText.trim()}>
+                      {replySending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

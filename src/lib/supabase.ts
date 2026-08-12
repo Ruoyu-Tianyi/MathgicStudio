@@ -14,5 +14,15 @@ export interface MessageRow {
   id: string
   name: string
   text: string
+  pinned: boolean
+  likes: number
+  created_at: string
+}
+
+export interface ReplyRow {
+  id: string
+  message_id: string
+  name: string
+  text: string
   created_at: string
 }

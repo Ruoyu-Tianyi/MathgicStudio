@@ -3,17 +3,19 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
-  Rocket, Download, Loader2, CheckCircle2, XCircle, Clock, Search,
+  Rocket, Download, Loader2, CheckCircle2, XCircle, Clock, Search, ListOrdered,
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, ADMIN_EMAIL } from '@/lib/supabase'
 import type { ContestId } from '@/lib/workflow'
 
 interface JobRow {
   id: string
+  contest: string
   status: 'pending' | 'running' | 'done' | 'failed'
   stage: string | null
   result_file_path: string | null
   error: string | null
+  contact: string | null
   created_at: string
 }
 
@@ -25,6 +27,17 @@ interface Props {
 const STORAGE_KEY = 'mathgic-job-id'
 const POLL_MS = 15000
 
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleString('zh-CN', { hour12: false })
+}
+
+function StatusBadge({ status }: { status: JobRow['status'] }) {
+  if (status === 'pending') return <Badge variant="outline" className="border-slate-300 text-slate-600"><Clock className="mr-1 h-3 w-3" /> 排队中</Badge>
+  if (status === 'running') return <Badge variant="outline" className="border-indigo-400 bg-indigo-50 text-indigo-700"><Loader2 className="mr-1 h-3 w-3 animate-spin" /> 生成中</Badge>
+  if (status === 'done') return <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700"><CheckCircle2 className="mr-1 h-3 w-3" /> 已完成</Badge>
+  return <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700"><XCircle className="mr-1 h-3 w-3" /> 失败</Badge>
+}
+
 export default function RealGenPanel({ contest, problemText }: Props) {
   const [contact, setContact] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -33,12 +46,32 @@ export default function RealGenPanel({ contest, problemText }: Props) {
   const [queryId, setQueryId] = useState('')
   const [downloading, setDownloading] = useState(false)
 
-  // 恢复上次任务
+  // 管理员任务队列
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [queue, setQueue] = useState<JobRow[]>([])
+  const [queueLoading, setQueueLoading] = useState(false)
+
+  // 恢复上次任务 + 管理员登录态
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) fetchJob(saved)
+    supabase.auth.getSession().then(({ data }) => {
+      setIsAdmin(data.session?.user?.email === ADMIN_EMAIL)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAdmin(session?.user?.email === ADMIN_EMAIL)
+    })
+    return () => sub.subscription.unsubscribe()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 管理员加载队列
+  useEffect(() => {
+    if (!isAdmin) return
+    void fetchQueue()
+    const t = setInterval(fetchQueue, 30000)
+    return () => clearInterval(t)
+  }, [isAdmin])
 
   // 轮询任务状态
   useEffect(() => {
@@ -48,9 +81,20 @@ export default function RealGenPanel({ contest, problemText }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.id, job?.status])
 
+  async function fetchQueue() {
+    setQueueLoading(true)
+    const { data } = await supabase
+      .from('jobs')
+      .select('id,contest,status,stage,result_file_path,error,contact,created_at')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (data) setQueue(data as JobRow[])
+    setQueueLoading(false)
+  }
+
   async function fetchJob(id: string) {
     const { data, error } = await supabase
-      .from('jobs').select('id,status,stage,result_file_path,error,created_at')
+      .from('jobs').select('id,contest,status,stage,result_file_path,error,contact,created_at')
       .eq('id', id).maybeSingle()
     if (error) {
       setNotice({ ok: false, text: `查询失败：${error.message}` })
@@ -70,7 +114,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
     const { data, error } = await supabase
       .from('jobs')
       .insert({ contest, problem_text: problemText, contact: contact || null })
-      .select('id,status,stage,result_file_path,error,created_at')
+      .select('id,contest,status,stage,result_file_path,error,contact,created_at')
       .single()
     setSubmitting(false)
     if (error) {
@@ -82,11 +126,12 @@ export default function RealGenPanel({ contest, problemText }: Props) {
     setNotice({ ok: true, text: '任务已进入队列！Worker 领取后开始生成，可随时离开，凭任务 ID 回来查询。' })
   }
 
-  async function handleDownload() {
-    if (!job?.result_file_path) return
+  async function handleDownload(path?: string | null) {
+    const p = path ?? job?.result_file_path
+    if (!p) return
     setDownloading(true)
     const { data, error } = await supabase.storage
-      .from('jobs').createSignedUrl(job.result_file_path, 3600)
+      .from('jobs').createSignedUrl(p, 3600)
     setDownloading(false)
     if (error || !data?.signedUrl) {
       setNotice({ ok: false, text: `获取下载链接失败：${error?.message ?? '未知错误'}` })
@@ -144,10 +189,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
         {job && (
           <div className="max-w-3xl rounded-lg bg-black/[0.03] p-4">
             <div className="flex flex-wrap items-center gap-2">
-              {job.status === 'pending' && <Badge variant="outline" className="border-slate-300 text-slate-600"><Clock className="mr-1 h-3 w-3" /> 排队中</Badge>}
-              {job.status === 'running' && <Badge variant="outline" className="border-indigo-400 bg-indigo-50 text-indigo-700"><Loader2 className="mr-1 h-3 w-3 animate-spin" /> 生成中</Badge>}
-              {job.status === 'done' && <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700"><CheckCircle2 className="mr-1 h-3 w-3" /> 已完成</Badge>}
-              {job.status === 'failed' && <Badge variant="outline" className="border-red-300 bg-red-50 text-red-700"><XCircle className="mr-1 h-3 w-3" /> 失败</Badge>}
+              <StatusBadge status={job.status} />
               {job.stage && job.status === 'running' && (
                 <span className="text-sm text-indigo-700">当前阶段：{job.stage}</span>
               )}
@@ -157,7 +199,7 @@ export default function RealGenPanel({ contest, problemText }: Props) {
             </p>
             {job.error && <p className="mt-2 text-sm text-red-600">错误信息：{job.error}</p>}
             {job.status === 'done' && (
-              <Button size="sm" onClick={handleDownload} disabled={downloading} className="mt-3 bg-green-600 hover:bg-green-700">
+              <Button size="sm" onClick={() => handleDownload()} disabled={downloading} className="mt-3 bg-green-600 hover:bg-green-700">
                 {downloading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
                 下载论文 Word 文档
               </Button>
@@ -182,6 +224,48 @@ export default function RealGenPanel({ contest, problemText }: Props) {
             <Search className="mr-1 h-3 w-3" /> 查询
           </Button>
         </div>
+
+        {/* 管理员：任务队列 */}
+        {isAdmin && (
+          <div className="mt-8 border-t border-black/10 pt-6">
+            <div className="flex items-center justify-between">
+              <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <ListOrdered className="h-4 w-4 text-indigo-600" /> 任务队列（管理员可见 · 30s 自动刷新）
+              </h4>
+              <Button variant="ghost" size="sm" onClick={fetchQueue} disabled={queueLoading}>
+                {queueLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '刷新'}
+              </Button>
+            </div>
+            <div className="mt-3 divide-y divide-black/10 border-y border-black/10">
+              {queue.length === 0 && (
+                <p className="py-6 text-center text-xs text-slate-400">队列暂无任务</p>
+              )}
+              {queue.map((q) => (
+                <div key={q.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-sm">
+                  <StatusBadge status={q.status} />
+                  <span className="font-mono text-xs text-slate-400">{q.id.slice(0, 8)}</span>
+                  <span className="text-xs text-slate-600">{q.contest === 'cumcm' ? '国赛' : '美赛'}</span>
+                  {q.stage && q.status === 'running' && (
+                    <span className="text-xs text-indigo-600">{q.stage}</span>
+                  )}
+                  {q.contact && <span className="text-xs text-slate-500">📮 {q.contact}</span>}
+                  <span className="ml-auto text-xs text-slate-400">{fmtTime(q.created_at)}</span>
+                  {q.status === 'done' && q.result_file_path && (
+                    <button
+                      onClick={() => handleDownload(q.result_file_path)}
+                      className="text-xs text-indigo-600 hover:underline"
+                    >
+                      下载
+                    </button>
+                  )}
+                  {q.status === 'failed' && q.error && (
+                    <span className="w-full text-xs text-red-500">{q.error}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
