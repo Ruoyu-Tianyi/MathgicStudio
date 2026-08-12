@@ -27,7 +27,7 @@ export default function Pipeline() {
         </div>
 
         {/* 手风琴：发丝线分隔行 */}
-        <Accordion type="single" collapsible className="mt-8 border-y border-black/10">
+        <Accordion type="multiple" className="mt-8 border-y border-black/10">
           {STAGES.map((s) => (
             <AccordionItem key={s.id} value={s.id} className="border-black/10 px-2">
               <AccordionTrigger className="hover:no-underline">
