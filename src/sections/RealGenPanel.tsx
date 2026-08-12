@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
   Rocket, Download, Loader2, CheckCircle2, XCircle, Clock, Search, ListOrdered,
-  Paperclip, X,
+  Paperclip, X, ShieldCheck, LogOut,
 } from 'lucide-react'
 import { supabase, ADMIN_EMAIL } from '@/lib/supabase'
 import type { ContestId } from '@/lib/workflow'
@@ -60,6 +60,10 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
   const [isAdmin, setIsAdmin] = useState(false)
   const [queue, setQueue] = useState<JobRow[]>([])
   const [queueLoading, setQueueLoading] = useState(false)
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false)
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminBusy, setAdminBusy] = useState(false)
+  const [adminMsg, setAdminMsg] = useState('')
 
   // 恢复上次任务 + 管理员登录态
   useEffect(() => {
@@ -199,6 +203,27 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
     window.open(data.signedUrl, '_blank')
   }
 
+  async function sendMagicLink() {
+    const email = adminEmail.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAdminMsg('请输入正确的邮箱地址')
+      return
+    }
+    setAdminBusy(true)
+    setAdminMsg('')
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    })
+    setAdminBusy(false)
+    setAdminMsg(err ? '发送失败：' + err.message : '登录邮件已发送，请查收并点击邮件中的链接完成登录')
+  }
+
+  async function adminLogout() {
+    await supabase.auth.signOut()
+    setAdminPanelOpen(false)
+  }
+
   const contactOk = contact.trim().length >= 5
   const canSubmit = problemText.trim().length >= 10 && contactOk && !submitting
 
@@ -332,55 +357,92 @@ export default function RealGenPanel({ contest, problemText, problemFile }: Prop
           </Button>
         </div>
 
-        {/* 管理员：任务队列 */}
-        {isAdmin && (
-          <div className="mt-8 border-t border-black/10 pt-6">
-            <div className="flex items-center justify-between">
-              <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <ListOrdered className="h-4 w-4 text-indigo-600" /> 任务队列（管理员可见 · 全部状态 · 30s 自动刷新）
-              </h4>
-              <Button variant="ghost" size="sm" onClick={fetchQueue} disabled={queueLoading}>
-                {queueLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '刷新'}
-              </Button>
-            </div>
-            {queue.length > 0 && (
-              <p className="mt-2 text-xs text-slate-500">
-                共 {queue.length} 单：排队中 {queue.filter((q) => q.status === 'pending').length} ·
-                生成中 {queue.filter((q) => q.status === 'running').length} ·
-                已完成 {queue.filter((q) => q.status === 'done').length} ·
-                失败 {queue.filter((q) => q.status === 'failed').length}
-              </p>
-            )}
-            <div className="mt-3 divide-y divide-black/10 border-y border-black/10">
-              {queue.length === 0 && (
-                <p className="py-6 text-center text-xs text-slate-400">队列暂无任务</p>
-              )}
-              {queue.map((q) => (
-                <div key={q.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-sm">
-                  <StatusBadge status={q.status} />
-                  <span className="font-mono text-xs text-slate-400">{q.id.slice(0, 8)}</span>
-                  <span className="text-xs text-slate-600">{q.contest === 'cumcm' ? '国赛' : '美赛'}</span>
-                  {q.stage && q.status === 'running' && (
-                    <span className="text-xs text-indigo-600">{q.stage}</span>
-                  )}
-                  {q.contact && <span className="text-xs text-slate-500">📮 {q.contact}</span>}
-                  <span className="ml-auto text-xs text-slate-400">{fmtTime(q.created_at)}</span>
-                  {q.status === 'done' && q.result_file_path && (
-                    <button
-                      onClick={() => handleDownload(q.result_file_path)}
-                      className="text-xs text-indigo-600 hover:underline"
-                    >
-                      下载
+        {/* 管理员：任务队列（未登录时提供登录入口） */}
+        <div className="mt-8 border-t border-black/10 pt-6">
+          {isAdmin ? (
+            <>
+              <div className="flex items-center justify-between">
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <ListOrdered className="h-4 w-4 text-indigo-600" /> 任务队列（管理员可见 · 全部状态 · 30s 自动刷新）
+                </h4>
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1.5 text-xs text-green-700">
+                    <ShieldCheck className="h-3.5 w-3.5" /> 管理员已登录
+                    <button onClick={adminLogout} className="flex items-center gap-1 text-slate-400 hover:text-red-500">
+                      <LogOut className="h-3 w-3" /> 退出
                     </button>
-                  )}
-                  {q.status === 'failed' && q.error && (
-                    <span className="w-full text-xs text-red-500">{q.error}</span>
-                  )}
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={fetchQueue} disabled={queueLoading}>
+                    {queueLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '刷新'}
+                  </Button>
                 </div>
-              ))}
+              </div>
+              {queue.length > 0 && (
+                <p className="mt-2 text-xs text-slate-500">
+                  共 {queue.length} 单：排队中 {queue.filter((q) => q.status === 'pending').length} ·
+                  生成中 {queue.filter((q) => q.status === 'running').length} ·
+                  已完成 {queue.filter((q) => q.status === 'done').length} ·
+                  失败 {queue.filter((q) => q.status === 'failed').length}
+                </p>
+              )}
+              <div className="mt-3 divide-y divide-black/10 border-y border-black/10">
+                {queue.length === 0 && (
+                  <p className="py-6 text-center text-xs text-slate-400">队列暂无任务</p>
+                )}
+                {queue.map((q) => (
+                  <div key={q.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-sm">
+                    <StatusBadge status={q.status} />
+                    <span className="font-mono text-xs text-slate-400">{q.id.slice(0, 8)}</span>
+                    <span className="text-xs text-slate-600">{q.contest === 'cumcm' ? '国赛' : '美赛'}</span>
+                    {q.stage && q.status === 'running' && (
+                      <span className="text-xs text-indigo-600">{q.stage}</span>
+                    )}
+                    {q.contact && <span className="text-xs text-slate-500">📮 {q.contact}</span>}
+                    <span className="ml-auto text-xs text-slate-400">{fmtTime(q.created_at)}</span>
+                    {q.status === 'done' && q.result_file_path && (
+                      <button
+                        onClick={() => handleDownload(q.result_file_path)}
+                        className="text-xs text-indigo-600 hover:underline"
+                      >
+                        下载
+                      </button>
+                    )}
+                    {q.status === 'failed' && q.error && (
+                      <span className="w-full text-xs text-red-500">{q.error}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div>
+              <button
+                onClick={() => setAdminPanelOpen(!adminPanelOpen)}
+                className="flex items-center gap-1.5 text-xs text-slate-400 transition-colors hover:text-indigo-600"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" /> 管理员登录 · 查看任务队列
+              </button>
+              {adminPanelOpen && (
+                <div className="mt-3 max-w-md rounded-lg bg-indigo-50/70 p-3">
+                  <div className="flex gap-2">
+                    <Input
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="管理员邮箱"
+                      type="email"
+                      className="h-9 bg-white text-sm"
+                    />
+                    <Button size="sm" onClick={sendMagicLink} disabled={adminBusy} className="shrink-0">
+                      {adminBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : '发送登录邮件'}
+                    </Button>
+                  </div>
+                  {adminMsg && <p className="mt-2 text-xs text-slate-600">{adminMsg}</p>}
+                  <p className="mt-1 text-xs text-slate-400">免密码：点击邮件中的魔法链接即完成登录。</p>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
