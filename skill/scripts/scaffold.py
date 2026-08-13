@@ -89,6 +89,14 @@ FIGDIR.mkdir(exist_ok=True)
 # V3.7.1 字号纪律：图插进 Word 会等比缩小，图内文字跟着缩水。
 # savefig(insert_cm=...) 按"目标插入宽度"反向放大图内字号，使插入
 # Word 缩放后图内文字 ≈10 pt（五号）；图背景默认透明（无边框、无填充色）。
+#
+# V4.4 防重叠三件套：
+# 1) 散点/样本点标注一律用 label_points()（贪心避让 + 收束在 axes 内），
+#    禁止裸 ax.annotate 固定偏移——固定偏移必重叠、必越界压相邻子图；
+# 2) 多面板图非最右面板的图例无空位时移到面板上方（不再移轴外右侧
+#    压邻居）；savefig 对越界 ax.texts 打 WARN；
+# 3) flow() 阶段 ≥4 时禁止横向 lr（自动改纵向 tb），路线图文字对齐
+#    正文五号（10.5pt 基准）。
 
 
 def _strip_titles(fig, name):
@@ -224,9 +232,23 @@ def _legend_safe(fig, name):
                 print(f"[V4.1] {name}: 图例与内容重叠 —— 已自动重定位到 {loc}")
                 break
         else:
-            leg.set_bbox_to_anchor((1.02, 1.0))
-            leg.set_loc("upper left")
-            print(f"[V4.1] {name}: 图内无空位 —— 图例已移到轴外右侧")
+            # V4.4：多面板时仅最右面板允许移轴外右侧——非最右面板移轴外
+            # 右侧会压到相邻子图的 ylabel/刻度（实测 fig9 案例），改为移到
+            # 面板上方外侧（论文惯例）；单面板维持轴外右侧。
+            mains = [a for a in fig.axes if a.get_label() != "<colorbar>"]
+            rightmost = max(a.get_position().x1 for a in mains)
+            if len(mains) > 1 and ax.get_position().x1 < rightmost - 1e-3:
+                leg.set_bbox_to_anchor((0.5, 1.02))
+                leg.set_loc("lower center")
+                try:
+                    leg.set_ncol(min(len(leg.get_texts()), 4))
+                except AttributeError:
+                    leg._ncol = min(len(leg.get_texts()), 4)
+                print(f"[V4.4] {name}: 图内无空位且非最右面板 —— 图例已移到面板上方")
+            else:
+                leg.set_bbox_to_anchor((1.02, 1.0))
+                leg.set_loc("upper left")
+                print(f"[V4.1] {name}: 图内无空位 —— 图例已移到轴外右侧")
 
 
 _SUBSCRIPT_RE = None
@@ -281,6 +303,33 @@ def _lint_colorbar_overlap(fig, name):
                 return
 
 
+def _lint_text_overflow(fig, name):
+    """V4.4 标注越界检测：ax.texts 包围盒越出本 axes 边界时 WARN——
+    越界标注会压到相邻子图的 ylabel/刻度文字（fig6 跨面板互压实测
+    案例）。散点/样本点标注请改用 label_points()：自动避让并收束在
+    本 axes 内。"""
+    try:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+    except Exception:
+        return
+    bad = []
+    for ax in fig.axes:
+        if ax.get_label() == "<colorbar>":
+            continue
+        axbb = ax.get_window_extent(renderer)
+        for t in ax.texts:
+            if not t.get_text():
+                continue
+            bb = t.get_window_extent(renderer)
+            if (bb.x0 < axbb.x0 - 4 or bb.x1 > axbb.x1 + 4
+                    or bb.y0 < axbb.y0 - 4 or bb.y1 > axbb.y1 + 4):
+                bad.append(t.get_text().replace("\\n", " ")[:12])
+    if bad:
+        print(f"[V4.4] {name}: {len(bad)} 处标注越出 axes 边界 {bad[:4]} —— "
+              f"可能压到相邻子图；散点/样本点标注请用 label_points()")
+
+
 def savefig(fig, name, dpi=300, insert_cm=12.0, transparent=True):
     """保存论文用图。
 
@@ -293,6 +342,7 @@ def savefig(fig, name, dpi=300, insert_cm=12.0, transparent=True):
     _legend_safe(fig, name)
     _lint_texts(fig, name)
     _lint_colorbar_overlap(fig, name)
+    _lint_text_overflow(fig, name)
     if transparent:
         fig.patch.set_alpha(0.0)
         for ax in fig.axes:
@@ -349,6 +399,76 @@ def mark_point(ax, p, label, color="#C00000", offset=(0.8, 0.6), s=28,
                 xytext=offset, fontsize=fontsize, color=color)
 
 
+def label_points(ax, xs, ys, labels, fontsize=9, color="#333333",
+                 dot_pad=3.0, inflate=1.3):
+    """散点/样本点批量标注，自动防重叠（V4.4）。
+
+    每个标签在 8 方向 × 3 距离档共 24 个候选位中贪心选择：与已放置
+    标签、全部数据点的重叠面积最小者；候选位一律收束在本 axes 边界
+    内，杜绝越界压到相邻子图（fig3/fig5/fig6 实测案例的根因）。
+    inflate 为 savefig 字号反缩放预留的安全膨胀系数。
+
+    散点/样本点标注一律走本函数，禁止裸 ax.annotate 固定偏移。
+    单点几何标注（非样本点）仍可用 mark_point()。
+    """
+    import numpy as np
+    fig = ax.figure
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    axbb = ax.get_window_extent(renderer)
+    xs = np.asarray(xs, float)
+    ys = np.asarray(ys, float)
+    pts = ax.transData.transform(np.column_stack([xs, ys]))
+    p2px = fig.dpi / 72.0  # offset points → display px
+
+    placed = []
+    for t in ax.texts:  # 已有标注（如统计量文本）也参与避让
+        if t.get_text():
+            bb = t.get_window_extent(renderer)
+            placed.append((bb.x0, bb.y0, bb.x1, bb.y1))
+    dots = [(px - dot_pad, py - dot_pad, px + dot_pad, py + dot_pad)
+            for px, py in pts]
+    dirs8 = [(1, 1), (1, -1), (-1, 1), (-1, -1),
+             (1, 0), (-1, 0), (0, 1), (0, -1)]
+    dists = [7.0, 13.0, 21.0]  # points
+
+    def overlap(a, b):
+        ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+        iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+        return ix * iy
+
+    for i, lab in enumerate(labels):
+        lab = str(lab)
+        if not lab:
+            continue
+        probe = ax.text(0, 0, lab, fontsize=fontsize, alpha=0.0)
+        fig.canvas.draw()
+        pb = probe.get_window_extent(renderer)
+        w, h = (pb.width + 2) * inflate, (pb.height + 2) * inflate
+        probe.remove()
+        px, py = pts[i]
+        cands = []
+        for d in dists:
+            for ux, uy in dirs8:
+                ha = "left" if ux > 0 else ("right" if ux < 0 else "center")
+                va = "bottom" if uy > 0 else ("top" if uy < 0 else "center")
+                cx, cy = px + ux * d * p2px, py + uy * d * p2px
+                x0 = cx if ha == "left" else (cx - w if ha == "right" else cx - w / 2)
+                y0 = cy if va == "bottom" else (cy - h if va == "top" else cy - h / 2)
+                cand = (x0, y0, x0 + w, y0 + h)
+                inside = (cand[0] >= axbb.x0 + 2 and cand[2] <= axbb.x1 - 2
+                          and cand[1] >= axbb.y0 + 2 and cand[3] <= axbb.y1 - 2)
+                cost = sum(overlap(cand, b) for b in placed)
+                cost += 4.0 * sum(overlap(cand, b) for b in dots)  # 压点罚重
+                cands.append((0 if inside else 1, cost, cand, ux, uy, d, ha, va))
+        cands.sort(key=lambda c: (c[0], c[1]))  # 轴内优先，再按重叠代价
+        _, _, cand, ux, uy, d, ha, va = cands[0]
+        ax.annotate(lab, (xs[i], ys[i]), textcoords="offset points",
+                    xytext=(ux * d, uy * d), ha=ha, va=va,
+                    fontsize=fontsize, color=color, zorder=6)
+        placed.append(cand)
+
+
 def mark_angle(ax, vertex, p1, p2, label=None, radius=None, color="#2F5597",
                fontsize=9, arc_kw=None):
     """Draw an angle arc at `vertex` between rays to p1 and p2, + label."""
@@ -378,9 +498,11 @@ def flow(layers, edges, name, title=None, vgap=2.0, hgap=0.9,
     layers: [[(key, label), ...], ...]  # each inner list is one stage
     edges:  [(src_key, dst_key), ...] or [(src, dst, edge_label), ...]
     name:   output filename under figures/
-    orientation: "tb" stages top-down (default); "lr" stages left-to-right
+    orientation: "tb" stages top-down (default, 论文路线图一律优先纵向);
+                 "lr" left-to-right —— 仅阶段 ≤3 允许，≥4 自动改 tb（V4.4）
     phases: optional per-stage swimlane labels (list aligned with layers;
             None entries skipped). Shown left of rows (tb) / above columns (lr).
+    insert_cm: 与 md 插入宽度一致；流程图内容宽，md 建议 {w=14cm}（V4.4）
 
     Example:
         flow([[("a", "读取数据")], [("b", "清洗"), ("c", "EDA")], [("d", "建模")]],
@@ -392,14 +514,22 @@ def flow(layers, edges, name, title=None, vgap=2.0, hgap=0.9,
     """
     import matplotlib.patches as mpatches
 
+    nst = len(layers)
+    if orientation == "lr" and nst >= 4:
+        # V4.4：≥4 阶段横向 lr 必出超扁图（实测 5640×737，插入后文字
+        # ≈3pt 不可读）——自动改纵向 tb；阶段 ≤3 才允许 lr。
+        print(f"[V4.4] flow(): {nst} 个阶段禁止横向 lr（插入后文字过小）"
+              f"—— 已自动改为纵向 tb；阶段 ≤3 才允许 lr")
+        orientation = "tb"
     tb = orientation != "lr"
     box_h, ec, fc = 0.95, "#2F5597", "#EAF2FB"
     label_of = {k: lab for layer in layers for k, lab in layer}
-    nst = len(layers)
 
     def box_w(lab, k=1.0):
         # V3.9：盒宽随字号系数 k 同步放大，保证放大后的文字始终装得下
-        return max(2.4 * k, 0.34 * k * len(str(lab)) + 1.0)
+        # V4.4：按最长行估算（多行标签不再按总字符数虚胖盒宽、撑大图幅）
+        longest = max(len(s) for s in str(lab).split("\\n"))
+        return max(2.4 * k, 0.34 * k * longest + 1.0)
 
     def layout(k=1.0):
         """按字号系数 k 计算节点坐标与图幅（坐标/盒宽/间距全部随 k 缩放）。"""
@@ -428,20 +558,22 @@ def flow(layers, edges, name, title=None, vgap=2.0, hgap=0.9,
                     u += (box_h + 0.55) * k
                 widths[key] = w
         if tb:
-            figw = min(max(7.5, maxw * 0.95 + (2.4 * k if phases else 0)), 16 * k)
+            # V4.4：版面收紧——去掉 7.5in 最小图宽地板、泳道 gutter 2.4k→1.6k；
+            # 图幅越窄，插入 Word 后缩放越小，终稿文字越大（对齐正文五号）
+            figw = min(max(4.5, maxw * 0.95 + (1.6 * k if phases else 0.6 * k)), 16 * k)
             figh = max(2.2, nst * main_step * 0.62 + 0.3)
         else:
             figw = min(max(7.5, nst * main_step * 1.0), 16 * k)
             figh = max(2.2, maxw * 0.9 + 0.3 + (0.9 * k if phases else 0))
         return pos, widths, maxw, main_step, figw, figh
 
-    # V3.9 自缩放：先按基准 10pt 布局估算图宽，推出放大系数 factor
+    # V3.9 自缩放：先按基准 10.5pt 布局估算图宽，推出放大系数 factor
     # （与 _boost_fonts 同公式、同 1.5 封顶），再按放大字号重新布局——
     # 布局一开始就为终稿字号设计，杜绝"先布局后放大字形"导致的重叠。
     _, _, _, _, figw0, _ = layout(1.0)
     factor = min(max(figw0 * 2.54 / max(insert_cm, 1e-6), 1.0), 1.5)
     pos, widths, maxw, main_step, figw, figh = layout(factor)
-    fs = 10.0 * factor
+    fs = 10.5 * factor  # V4.4：基准对齐正文五号 10.5pt
     k = factor
 
     if title:
@@ -487,13 +619,13 @@ def flow(layers, edges, name, title=None, vgap=2.0, hgap=0.9,
             if ph is None:
                 continue
             if tb:
-                ax.text(-maxw / 2 - 1.2 * k, -li * main_step, str(ph), ha="right",
-                        va="center", fontsize=9 * k, fontweight="bold", color=ec)
+                ax.text(-maxw / 2 - 0.9 * k, -li * main_step, str(ph), ha="right",
+                        va="center", fontsize=9.5 * k, fontweight="bold", color=ec)
             else:
                 ax.text(li * main_step, maxw / 2 + 1.0 * k, str(ph), ha="center",
-                        fontsize=9 * k, fontweight="bold", color=ec)
+                        fontsize=9.5 * k, fontweight="bold", color=ec)
     if tb:
-        ax.set_xlim(-maxw / 2 - (2.8 * k if phases else 1.0 * k), maxw / 2 + 1.0 * k)
+        ax.set_xlim(-maxw / 2 - (2.0 * k if phases else 1.0 * k), maxw / 2 + 1.0 * k)
         ax.set_ylim(-nst * main_step, main_step * 0.4)
     else:
         half = max(widths.values()) / 2 + 0.8 * k
