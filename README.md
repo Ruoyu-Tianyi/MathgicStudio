@@ -58,6 +58,21 @@ Skill 的上游仓库：[Ruoyu-Tianyi/MathModeling](https://github.com/Ruoyu-Tia
 
 **若瑜** — [GitHub](https://github.com/ruoyu-tianyi) · [LinkedIn](https://www.linkedin.com/in/tianyizhou-chris) · ruoyu_tianyi@163.com
 
+## 软件著作权
+
+本平台已登记计算机软件著作权：
+
+- 软件名称：Mathgic Studio 数学建模论文 Agent 工作平台 V1.0（简称：Mathgic Studio 平台）
+- 著作权人：周天意
+- 登记号：2026SR1152512（证书号：软著登字第 18366793 号）
+- 登记日期：2026 年 11 月 9 日
+- 在线查看（水印版）：https://www.tianyizhou.cn/certificates/mathgic-software-copyright
+
 ## License
 
-MIT
+自 2026-11-12 起，本仓库中的 Mathgic Studio 平台代码采用 [PolyForm Noncommercial License 1.0.0](LICENSE)：
+
+- ✅ 可以阅读、学习、修改，并用于个人学习、研究、教学等**非商业**用途，需保留 LICENSE 中的版权声明；
+- ❌ 任何**商业用途**（包括付费服务、商业产品集成、对外提供有偿建模或写作服务等）须事先取得作者书面授权，联系 contact@tianyizhou.cn。
+
+`skill/` 目录是 [Ruoyu-Tianyi/MathModeling](https://github.com/Ruoyu-Tianyi/MathModeling) 的副本，仍按其自身的 MIT 许可发布。2026-11-12 之前已公开的版本按当时声明的 MIT 许可发布，相应副本继续适用 MIT。
